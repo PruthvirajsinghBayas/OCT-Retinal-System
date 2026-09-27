@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Result-OCT Retinal System</title>
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: #0d1117;
+      color: #e6edf3;
+      min-height: 100vh;
+    }
+    header {
+      background: #161b22;
+      border-bottom: 1px solid #30363d;
+      padding: 16px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    header h1 { color: #00d9ff; font-size: 1.3rem; font-weight: 700; }
+    .badge {
+      background: #00d9ff; color: #0d1117;
+      padding: 3px 10px; border-radius: 20px;
+      font-size: 0.75rem; font-weight: 700;
+    }
+    main { max-width: 960px; margin: 36px auto; padding: 0 20px; }
+
+    .diagnosis-banner {
+      border-radius: 12px;
+      padding: 24px 28px;
+      margin-bottom: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .diagnosis-banner h2 { font-size: 1.6rem; font-weight: 800; }
+    .diagnosis-banner .conf { font-size: 1.1rem; font-weight: 600; opacity: 0.85; }
+
+    .card {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 20px;
+    }
+    .card h3 {
+      color: #8b949e;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .oct-image {
+      width: 100%;
+      border-radius: 8px;
+      border: 2px solid #30363d;
+      object-fit: contain;
+      max-height: 260px;
+    }
+    .description {
+      background: #21262d;
+      border-radius: 8px;
+      padding: 16px;
+      font-size: 0.95rem;
+      line-height: 1.6;
+      color: #e6edf3;
+    }
+    .clinical-note {
+      border-radius: 8px;
+      padding: 14px 18px;
+      font-size: 0.88rem;
+      line-height: 1.5;
+      margin-top: 16px;
+    }
+    .bar-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .bar-label {
+      width: 70px;
+      font-weight: 700;
+      font-size: 0.9rem;
+      text-align: right;
+      flex-shrink: 0;
+    }
+    .bar-track {
+      flex: 1;
+      background: #21262d;
+      border-radius: 6px;
+      height: 18px;
+      overflow: hidden;
+    }
+    .bar-fill { height: 100%; border-radius: 6px; }
+    .bar-pct {
+      width: 58px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      font-family: monospace;
+      text-align: right;
+      flex-shrink: 0;
+    }
+
+    .perf-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.82rem;
+      margin-top: 8px;
+    }
+    .perf-table th {
+      text-align: left;
+      padding: 8px 6px;
+      color: #8b949e;
+      font-weight: 600;
+      border-bottom: 2px solid #30363d;
+    }
+    .perf-table td {
+      padding: 8px 6px;
+      border-bottom: 1px solid #21262d;
+      color: #e6edf3;
+    }
+    .perf-table .model-name { font-weight: 700; color: #e6edf3; }
+    .metric-bar {
+      display: inline-block;
+      height: 8px;
+      border-radius: 4px;
+      background: #00d9ff;
+      margin-right: 6px;
+    }
+
+    #accuracyChart {
+      width: 100%;
+      height: 300px;
+      border-radius: 8px;
+    }
+
+    .btn-row {
+      display: flex;
+      gap: 12px;
+      margin-top: 12px;
+      flex-wrap: wrap;
+    }
+    .btn-back, .btn-pdf {
+      display: inline-block;
+      padding: 12px 28px;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      font-weight: 700;
+      text-decoration: none;
+      transition: opacity 0.2s;
+      cursor: pointer;
+      border: none;
+    }
+    .btn-back {
+      background: #21262d;
+      color: #00d9ff;
+      border: 1px solid #00d9ff;
+    }
+    .btn-pdf {
+      background: #00d9ff;
+      color: #0d1117;
+      border: 1px solid #00d9ff;
+    }
+    .btn-back:hover, .btn-pdf:hover { opacity: 0.8; }
+
+    footer {
+      text-align: center; color: #8b949e;
+      font-size: 0.8rem; padding: 32px;
+    }
+    .heatmap-container {
+      position: relative;
+      text-align: center;
+    }
+    .heatmap-image {
+      max-width: 100%;
+      border-radius: 8px;
+      border: 2px solid #30363d;
+    }
+    .heatmap-note {
+      background: #21262d;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 0.82rem;
+      color: #8b949e;
+      margin-top: 10px;
+      text-align: left;
+    }
+    .fallback-msg {
+      color: #8b949e;
+      text-align: center;
+      padding: 40px;
+      font-size: 0.95rem;
+    }
+
+    #report-content {
+      background: #0d1117;
+      padding: 20px;
+    }
+
+    /* ─── Modal Styles ─── */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 1000;
+      justify-content: center;
+      align-items: center;
+    }
+    .modal-overlay.active {
+      display: flex;
+    }
+    .modal-box {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 16px;
+      padding: 32px;
+      max-width: 440px;
+      width: 90%;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+    }
+    .modal-box h2 {
+      color: #00d9ff;
+      font-size: 1.2rem;
+      margin-bottom: 8px;
+    }
+    .modal-box .sub {
+      color: #8b949e;
+      font-size: 0.85rem;
+      margin-bottom: 20px;
+    }
+    .modal-box label {
+      display: block;
+      color: #e6edf3;
+      font-weight: 600;
+      margin-bottom: 4px;
+      font-size: 0.9rem;
+    }
+    .modal-box input {
+      width: 100%;
+      padding: 10px 14px;
+      background: #21262d;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      color: #e6edf3;
+      font-size: 0.95rem;
+      margin-bottom: 16px;
+      outline: none;
+    }
+    .modal-box input:focus {
+      border-color: #00d9ff;
+    }
+    .modal-box .btn-generate {
+      width: 100%;
+      padding: 12px;
+      background: #00d9ff;
+      color: #0d1117;
+      border: none;
+      border-radius: 8px;
+      font-weight: 700;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    .modal-box .btn-generate:hover { opacity: 0.85; }
+    .modal-box .btn-cancel {
+      width: 100%;
+      padding: 10px;
+      background: transparent;
+      color: #8b949e;
+      border: none;
+      font-size: 0.9rem;
+      cursor: pointer;
+      margin-top: 8px;
+    }
+    .modal-box .btn-cancel:hover { color: #e6edf3; }
+    .modal-box .error-msg {
+      color: #ff4c4c;
+      font-size: 0.85rem;
+      margin-bottom: 12px;
+      display: none;
+      padding: 8px 12px;
+      background: #2a1a1a;
+      border-radius: 6px;
+      border-left: 3px solid #ff4c4c;
+    }
+    .modal-box .error-msg.show { display: block; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>👁 OCT Retinal Disease Classification</h1>
+  <span class="badge">Result</span>
+</header>
+
+<main id="report-content">
+
+  {% set colors = {
+    'CNV':    '#ff4c4c',
+    'DME':    '#f0883e',
+    'DRUSEN': '#d2a8ff',
+    'NORMAL': '#7ee787'
+  } %}
+  {% set bg_colors = {
+    'CNV':    '#2a1a1a',
+    'DME':    '#2a2010',
+    'DRUSEN': '#1e1a2a',
+    'NORMAL': '#1a2a1a'
+  } %}
+  {% set cls = result.prediction %}
+  {% set color = colors[cls] %}
+  {% set bg    = bg_colors[cls] %}
+
+  <!-- Diagnosis Banner -->
+  <div class="diagnosis-banner" style="background:{{ bg }}; border:2px solid {{ color }}">
+    <div>
+      <div style="color:{{ color }};font-size:0.8rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;margin-bottom:6px">
+        AI Diagnosis
+      </div>
+      <h2 style="color:{{ color }}">{{ cls }}</h2>
+      <div style="color:#8b949e;margin-top:4px;font-size:0.9rem">
+        Model: {{ result.model }}  ·  Processed in {{ result.total_time }}s
+      </div>
+    </div>
+    <div class="conf" style="color:{{ color }}">
+      {{ result.confidence }}% confidence
+    </div>
+  </div>
+
+  <!-- Image + Description -->
+  <div class="two-col">
+    <div class="card">
+      <h3>🔬 OCT Scan</h3>
+      <img class="oct-image" src="/static/{{ result.image_path }}" alt="OCT Image"/>
+    </div>
+    <div class="card">
+      <h3>📋 Diagnosis Info</h3>
+      <div class="description">{{ result.description }}</div>
+      {% if cls != 'NORMAL' %}
+      <div class="clinical-note" style="background:#2a1500;border-left:4px solid #f0883e;color:#f0883e">
+        ⚕ This is an AI-assisted result. Consult a qualified ophthalmologist.
+      </div>
+      {% else %}
+      <div class="clinical-note" style="background:#1a2a1a;border-left:4px solid #7ee787;color:#7ee787">
+        ✓ No pathology detected. Regular check-ups recommended.
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Confidence Bars -->
+  <div class="card">
+    <h3>📊 Class Probabilities</h3>
+    {% set bar_colors = {'CNV':'#ff4c4c','DME':'#f0883e','DRUSEN':'#d2a8ff','NORMAL':'#7ee787'} %}
+    {% for class_name, score in result.all_scores.items()|sort(attribute='1', reverse=True) %}
+    <div class="bar-row">
+      <div class="bar-label" style="color:{{ bar_colors[class_name] }}">{{ class_name }}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:{{ score }}%;background:{{ bar_colors[class_name] }}"></div></div>
+      <div class="bar-pct" style="color:{{ bar_colors[class_name] }}">{{ score }}%</div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Model-wise Performance -->
+  <div class="card">
+    <h3>📈 Model Performance (Overall)</h3>
+    <table class="perf-table">
+      <thead><tr><th>Model</th><th>Accuracy (%)</th><th>Precision (%)</th><th>Recall (%)</th><th>F1 (%)</th><th>Time (ms)</th></tr></thead>
+      <tbody>
+        {% for model, metrics in model_metrics.items() %}
+        <tr>
+          <td class="model-name">{{ model }}</td>
+          <td><span class="metric-bar" style="width:{{ metrics.accuracy * 0.6 }}px;"></span>{{ metrics.accuracy|round(1) }}</td>
+          <td>{{ metrics.precision|round(1) }}</td>
+          <td>{{ metrics.recall|round(1) }}</td>
+          <td>{{ metrics.f1|round(1) }}</td>
+          <td>{{ metrics.inference_time|round(1) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Class-wise Performance -->
+  <div class="card">
+    <h3>📊 Class-wise Performance (Precision / Recall / F1)</h3>
+    <table class="perf-table">
+      <thead>
+        <tr>
+          <th>Model</th>
+          {% for cls_name in class_names %}
+          <th colspan="3" style="text-align:center; color:{{ colors[cls_name] }};">{{ cls_name }}</th>
+          {% endfor %}
+        </tr>
+        <tr>
+          <th></th>
+          {% for cls_name in class_names %}
+          <th style="font-weight:400;color:#8b949e;">P</th>
+          <th style="font-weight:400;color:#8b949e;">R</th>
+          <th style="font-weight:400;color:#8b949e;">F1</th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for model, metrics in model_metrics.items() %}
+        <tr>
+          <td class="model-name">{{ model }}</td>
+          {% for cls_name in class_names %}
+          {% set pc = metrics.per_class.get(cls_name, {'precision':0,'recall':0,'f1':0}) %}
+          <td>{{ pc.precision|round(1) }}</td>
+          <td>{{ pc.recall|round(1) }}</td>
+          <td>{{ pc.f1|round(1) }}</td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Accuracy Bar Chart -->
+  <div class="card">
+    <h3>📊 Accuracy Comparison (All Models)</h3>
+    <div id="accuracyChart"></div>
+  </div>
+
+  <!-- Heatmap Overlay -->
+  <div class="card">
+    <h3>🗺️ Occlusion Sensitivity Heatmap <span style="font-weight:400;text-transform:none;font-size:0.7rem;color:#8b949e;">({{ result.grid_size }}×{{ result.grid_size }} grid)</span></h3>
+    <div class="heatmap-container">
+      {% if result.heatmap_overlay %}
+        <img class="heatmap-image" id="heatmap-img" src="/static/{{ result.heatmap_overlay }}" alt="Heatmap Overlay"/>
+      {% else %}
+        <div class="fallback-msg">⚠️ Heatmap could not be generated. Please check terminal for errors.</div>
+      {% endif %}
+    </div>
+    <div class="heatmap-note">
+      <b>How to read:</b> The coloured overlay shows which regions of the OCT scan <b>most influenced</b> the 
+      <span style="color:{{ color }};font-weight:700;">{{ cls }}</span> diagnosis. 
+      <br/>• <span style="color:#ff0000;">Red/Yellow</span> areas = high importance (masking them drops confidence).
+      <br/>• <span style="color:#0000ff;">Blue</span> areas = low importance.
+      <br/>The grid size ({{ result.grid_size }}×{{ result.grid_size }}) indicates the number of patches analysed.
+    </div>
+  </div>
+
+  <!-- Buttons (visible only on web) -->
+  <div class="btn-row" id="button-row">
+    <a class="btn-back" href="/">← Analyse Another Image</a>
+    <button class="btn-pdf" id="downloadPdfBtn">📄 Download Report (PDF)</button>
+  </div>
+
+</main>
+
+<footer>OCT Retinal System · BE Final Year Project 2024–25 · Raspberry Pi 5</footer>
+
+<!-- ─── Modal Overlay ─── -->
+<div class="modal-overlay" id="patientModal">
+  <div class="modal-box">
+    <h2>📋 Patient Details</h2>
+    <p class="sub">Please provide the following information before downloading the report.</p>
+
+    <div class="error-msg" id="modalError">⚠️ Please correct the highlighted fields.</div>
+
+    <label for="patientName">Patient's Full Name</label>
+    <input type="text" id="patientName" placeholder="Enter your full name" autocomplete="name"/>
+
+    <label for="patientEmail">Patient's Email ID</label>
+    <input type="email" id="patientEmail" placeholder="Enter your email address" autocomplete="email"/>
+
+    <button class="btn-generate" id="generatePdfBtn">✅ Generate PDF</button>
+    <button class="btn-cancel" id="cancelModalBtn">Cancel</button>
+  </div>
+</div>
+
+<script>
+  // ---------- Accuracy Bar Chart (no toolbar) ----------
+  const modelMetrics = {{ model_metrics | tojson }};
+  const models = Object.keys(modelMetrics);
+  const accuracies = models.map(m => modelMetrics[m].accuracy);
+
+  const modelColors = {
+    'ResNet50':       '#ff4c4c',
+    'EfficientNetB0': '#7ee787',
+    'InceptionV3':    '#d2a8ff',
+    'VGG19':          '#f0883e'
+  };
+  const barColors = models.map(m => modelColors[m] || '#00d9ff');
+
+  const plotlyConfig = {
+    displayModeBar: false,
+    responsive: true
+  };
+
+  Plotly.newPlot('accuracyChart', [{
+    x: models,
+    y: accuracies,
+    type: 'bar',
+    marker: { color: barColors, line: { color: '#0d1117', width: 1 } },
+    text: accuracies.map(v => v.toFixed(1) + '%'),
+    textposition: 'outside',
+    textfont: { color: '#e6edf3', size: 12 },
+    hovertemplate: '%{x}<br>Accuracy: %{y:.1f}%<extra></extra>'
+  }], {
+    paper_bgcolor: '#161b22',
+    plot_bgcolor: '#161b22',
+    font: { color: '#e6edf3', family: 'Segoe UI, Arial, sans-serif' },
+    margin: { l: 60, r: 40, b: 60, t: 20 },
+    xaxis: { title: { text: 'Model', font: { color: '#8b949e' } }, tickfont: { color: '#8b949e' }, gridcolor: '#30363d', zeroline: false },
+    yaxis: { title: { text: 'Accuracy (%)', font: { color: '#8b949e' } }, tickfont: { color: '#8b949e' }, gridcolor: '#30363d', range: [0, 105], zeroline: false },
+    bargap: 0.3
+  }, plotlyConfig);
+
+  // ─── Modal Logic with Validation ────────────────────────────
+  const modal = document.getElementById('patientModal');
+  const nameInput = document.getElementById('patientName');
+  const emailInput = document.getElementById('patientEmail');
+  const errorMsg = document.getElementById('modalError');
+
+  // Simple email validation regex
+  const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+
+  function validateForm() {
+    const name = nameInput.value.trim();
+    const email = emailInput.value.trim();
+
+    if (!name) {
+      errorMsg.textContent = '⚠️ Please enter the patient\'s full name.';
+      errorMsg.classList.add('show');
+      nameInput.focus();
+      return false;
+    }
+    if (!email) {
+      errorMsg.textContent = '⚠️ Please enter the patient\'s email address.';
+      errorMsg.classList.add('show');
+      emailInput.focus();
+      return false;
+    }
+    if (!emailRegex.test(email)) {
+      errorMsg.textContent = '⚠️ Please enter a valid email address (e.g., name@domain.com).';
+      errorMsg.classList.add('show');
+      emailInput.focus();
+      emailInput.select();
+      return false;
+    }
+    // valid
+    errorMsg.classList.remove('show');
+    return true;
+  }
+
+  function showModal() {
+    modal.classList.add('active');
+    nameInput.value = '';
+    emailInput.value = '';
+    errorMsg.classList.remove('show');
+    nameInput.focus();
+  }
+
+  function hideModal() {
+    modal.classList.remove('active');
+  }
+
+  // Cancel button
+  document.getElementById('cancelModalBtn').addEventListener('click', hideModal);
+  // Click outside to close
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) hideModal();
+  });
+
+  // "Generate PDF" button inside modal
+  document.getElementById('generatePdfBtn').addEventListener('click', function() {
+    if (!validateForm()) return;
+
+    const name = nameInput.value.trim();
+    const email = emailInput.value.trim();
+
+    hideModal();
+    generatePDF(name, email);
+  });
+
+  // Allow Enter key on inputs to trigger validation and generation
+  nameInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      document.getElementById('generatePdfBtn').click();
+    }
+  });
+  emailInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      document.getElementById('generatePdfBtn').click();
+    }
+  });
+
+  // ─── PDF Generation ──────────────────────────────────────────
+  function generatePDF(patientName, patientEmail) {
+    const btn = document.getElementById('downloadPdfBtn');
+    btn.textContent = '⏳ Generating PDF...';
+    btn.disabled = true;
+
+    const now = new Date();
+    const ts = now.getFullYear() +
+               String(now.getMonth()+1).padStart(2,'0') +
+               String(now.getDate()).padStart(2,'0') + '_' +
+               String(now.getHours()).padStart(2,'0') +
+               String(now.getMinutes()).padStart(2,'0') +
+               String(now.getSeconds()).padStart(2,'0');
+    const filename = `OCT_Report_${ts}.pdf`;
+
+    setTimeout(() => {
+      const element = document.getElementById('report-content');
+
+      // Clone the element
+      const clone = element.cloneNode(true);
+
+      // Remove button row from clone
+      const btnRowClone = clone.querySelector('#button-row');
+      if (btnRowClone) btnRowClone.remove();
+
+      // Prepend patient info card
+      const patientCard = document.createElement('div');
+      patientCard.className = 'card';
+      patientCard.style.marginBottom = '20px';
+      patientCard.style.background = '#1a2332';
+      patientCard.style.border = '1px solid #00d9ff';
+      patientCard.innerHTML = `
+        <h3 style="color:#00d9ff;font-size:0.8rem;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">👤 Patient Information</h3>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:0.95rem;">
+          <div><strong style="color:#8b949e;">Name:</strong> <span style="color:#e6edf3;">${patientName}</span></div>
+          <div><strong style="color:#8b949e;">Email:</strong> <span style="color:#e6edf3;">${patientEmail}</span></div>
+        </div>
+      `;
+      clone.prepend(patientCard);
+
+      // Append clone to a hidden wrapper for capture
+      const wrapper = document.createElement('div');
+      wrapper.style.position = 'absolute';
+      wrapper.style.left = '-9999px';
+      wrapper.style.top = '0';
+      wrapper.style.width = '960px';
+      wrapper.style.background = '#0d1117';
+      wrapper.appendChild(clone);
+      document.body.appendChild(wrapper);
+
+      html2canvas(clone, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#0d1117',
+        logging: false,
+        width: clone.scrollWidth,
+        height: clone.scrollHeight,
+        windowWidth: clone.scrollWidth,
+        windowHeight: clone.scrollHeight,
+        onclone: function(doc) {
+          const imgs = doc.querySelectorAll('img');
+          return Promise.all(Array.from(imgs).map(img => {
+            if (img.complete) return Promise.resolve();
+            return new Promise(resolve => {
+              img.onload = resolve;
+              img.onerror = resolve;
+            });
+          }));
+        }
+      }).then(canvas => {
+        const imgData = canvas.toDataURL('image/jpeg', 1.0);
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+        let heightLeft = pdfHeight;
+        let position = 0;
+
+        pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, pdfHeight);
+        heightLeft -= pdf.internal.pageSize.getHeight();
+
+        while (heightLeft > 0) {
+          position = heightLeft - pdfHeight;
+          pdf.addPage();
+          pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, pdfHeight);
+          heightLeft -= pdf.internal.pageSize.getHeight();
+        }
+
+        pdf.save(filename);
+        btn.textContent = '📄 Download Report (PDF)';
+        btn.disabled = false;
+        document.body.removeChild(wrapper);
+      }).catch(err => {
+        console.error('PDF generation error:', err);
+        btn.textContent = '❌ PDF Failed';
+        btn.disabled = false;
+        setTimeout(() => { btn.textContent = '📄 Download Report (PDF)'; }, 3000);
+        if (wrapper.parentNode) document.body.removeChild(wrapper);
+      });
+    }, 1000);
+  }
+
+  // ─── Trigger modal on PDF button click ──────────────────────
+  document.getElementById('downloadPdfBtn').addEventListener('click', showModal);
+</script>
+
+</body>
+</html>

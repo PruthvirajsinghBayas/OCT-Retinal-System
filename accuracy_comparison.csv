@@ -1,0 +1,5 @@
+Model,Accuracy(%),Avg_Inference_ms,Samples_Tested
+ResNet50,99.00,647.08,200
+EfficientNetB0,98.00,875.95,200
+InceptionV3,91.50,50.16,200
+VGG19,95.50,1870.53,200

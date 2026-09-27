@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>OCT Retinal Disease Classification</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: #0d1117;
+      color: #e6edf3;
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    header {
+      background: #161b22;
+      border-bottom: 1px solid #30363d;
+      padding: 16px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    header h1 {
+      color: #00d9ff;
+      font-size: 1.3rem;
+      font-weight: 700;
+    }
+    header span {
+      font-size: 0.8rem;
+      color: #8b949e;
+    }
+    .badge {
+      background: #00d9ff;
+      color: #0d1117;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 700;
+    }
+
+    /* ── Main Layout ── */
+    main {
+      max-width: 900px;
+      margin: 40px auto;
+      padding: 0 20px;
+    }
+
+    .subtitle {
+      text-align: center;
+      color: #8b949e;
+      margin-bottom: 36px;
+      font-size: 0.95rem;
+    }
+
+    /* ── Upload Card ── */
+    .card {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 12px;
+      padding: 32px;
+      margin-bottom: 24px;
+    }
+    .card h2 {
+      color: #00d9ff;
+      font-size: 1rem;
+      margin-bottom: 20px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    /* ── Drop Zone ── */
+    .dropzone {
+      border: 2px dashed #30363d;
+      border-radius: 10px;
+      padding: 48px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      position: relative;
+    }
+    .dropzone:hover, .dropzone.dragover {
+      border-color: #00d9ff;
+      background: #0d2030;
+    }
+    .dropzone input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%;
+    }
+    .dropzone .icon { font-size: 3rem; margin-bottom: 12px; }
+    .dropzone p { color: #8b949e; font-size: 0.95rem; }
+    .dropzone p span { color: #00d9ff; font-weight: 600; }
+    #file-name {
+      margin-top: 10px;
+      color: #7ee787;
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+    #preview-img {
+      max-width: 200px;
+      max-height: 200px;
+      margin: 16px auto 0;
+      display: none;
+      border-radius: 8px;
+      border: 2px solid #30363d;
+    }
+
+    /* ── Model Selector ── */
+    .model-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      margin-top: 8px;
+    }
+    .model-option {
+      position: relative;
+    }
+    .model-option input[type="radio"] {
+      position: absolute;
+      opacity: 0;
+    }
+    .model-option label {
+      display: block;
+      padding: 14px 16px;
+      background: #21262d;
+      border: 2px solid #30363d;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .model-option input[type="radio"]:checked + label {
+      border-color: #00d9ff;
+      background: #0d2030;
+    }
+    .model-option label:hover { border-color: #8b949e; }
+    .model-name { font-weight: 700; color: #e6edf3; font-size: 0.95rem; }
+    .model-detail { color: #8b949e; font-size: 0.78rem; margin-top: 3px; }
+
+    /* ── Buttons ── */
+    .btn-row {
+      display: flex;
+      gap: 12px;
+      margin-top: 24px;
+    }
+    .btn {
+      flex: 1;
+      padding: 14px;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+    }
+    .btn:active { transform: scale(0.98); }
+    .btn-primary {
+      background: #00d9ff;
+      color: #0d1117;
+    }
+    .btn-secondary {
+      background: #21262d;
+      color: #00d9ff;
+      border: 1px solid #00d9ff;
+    }
+    .btn:hover { opacity: 0.88; }
+
+    /* ── Info Cards ── */
+    .info-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      margin-top: 8px;
+    }
+    .info-item {
+      background: #21262d;
+      border-radius: 8px;
+      padding: 14px 16px;
+      border-left: 4px solid;
+    }
+    .info-item.cnv    { border-color: #ff4c4c; }
+    .info-item.dme    { border-color: #f0883e; }
+    .info-item.drusen { border-color: #d2a8ff; }
+    .info-item.normal { border-color: #7ee787; }
+    .info-item .cls   { font-weight: 700; font-size: 1rem; margin-bottom: 4px; }
+    .info-item .desc  { color: #8b949e; font-size: 0.82rem; }
+
+    /* ── Loading Overlay ── */
+    #loading {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(13,17,23,0.85);
+      z-index: 999;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      gap: 16px;
+    }
+    #loading.active { display: flex; }
+    .spinner {
+      width: 48px; height: 48px;
+      border: 4px solid #30363d;
+      border-top-color: #00d9ff;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #loading p { color: #00d9ff; font-weight: 600; }
+
+    footer {
+      text-align: center;
+      color: #8b949e;
+      font-size: 0.8rem;
+      padding: 32px;
+    }
+  </style>
+</head>
+<body>
+
+<!-- Loading Overlay -->
+<div id="loading">
+  <div class="spinner"></div>
+  <p>Running AI Analysis…</p>
+</div>
+
+<!-- Header -->
+<header>
+  <h1>👁 OCT Retinal Disease Classification</h1>
+  <div style="display:flex;align-items:center;gap:12px">
+    <span>Raspberry Pi 5 · BE Final Year Project</span>
+    <span class="badge">v1.0</span>
+  </div>
+</header>
+
+<main>
+  <p class="subtitle">Upload an OCT retinal scan to classify it using AI deep learning models</p>
+
+  <form id="predict-form" action="/predict" method="POST" enctype="multipart/form-data">
+
+    <!-- Upload Zone -->
+    <div class="card">
+      <h2>📂 Upload OCT Image</h2>
+      <div class="dropzone" id="dropzone">
+        <input type="file" name="file" id="file-input"
+               accept=".png,.jpg,.jpeg,.bmp,.tiff" required/>
+        <div class="icon">🔬</div>
+        <p>Drag & drop your OCT image here<br>or <span>click to browse</span></p>
+        <p id="file-name">No file selected</p>
+        <img id="preview-img" src="" alt="Preview"/>
+      </div>
+    </div>
+
+    <!-- Model Selection -->
+    <div class="card">
+      <h2>🧠 Select Model</h2>
+      <div class="model-grid">
+        <div class="model-option">
+          <input type="radio" name="model" id="m1" value="EfficientNetB0" checked/>
+          <label for="m1">
+            <div class="model-name">EfficientNetB0</div>
+            <div class="model-detail">224×224 · Best accuracy/speed ratio</div>
+          </label>
+        </div>
+        <div class="model-option">
+          <input type="radio" name="model" id="m2" value="ResNet50"/>
+          <label for="m2">
+            <div class="model-name">ResNet50</div>
+            <div class="model-detail">224×224 · 5 Epochs trained</div>
+          </label>
+        </div>
+        <div class="model-option">
+          <input type="radio" name="model" id="m3" value="InceptionV3"/>
+          <label for="m3">
+            <div class="model-name">InceptionV3</div>
+            <div class="model-detail">299×299 · Deep feature extraction</div>
+          </label>
+        </div>
+        <div class="model-option">
+          <input type="radio" name="model" id="m4" value="VGG19"/>
+          <label for="m4">
+            <div class="model-name">VGG19</div>
+            <div class="model-detail">224×224 · Classic deep CNN</div>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <!-- Buttons -->
+    <div class="btn-row">
+      <button type="submit" class="btn btn-primary"
+              onclick="document.getElementById('loading').classList.add('active')">
+        ▶ Run Analysis
+      </button>
+      <button type="submit" class="btn btn-secondary"
+              formaction="/compare"
+              onclick="document.getElementById('loading').classList.add('active')">
+        ⚡ Compare All 4 Models
+      </button>
+    </div>
+  </form>
+
+  <!-- Disease Info -->
+  <div class="card" style="margin-top:24px">
+    <h2>ℹ️ Disease Classes</h2>
+    <div class="info-grid">
+      <div class="info-item cnv">
+        <div class="cls" style="color:#ff4c4c">CNV</div>
+        <div class="desc">Choroidal Neovascularization — abnormal blood vessel growth</div>
+      </div>
+      <div class="info-item dme">
+        <div class="cls" style="color:#f0883e">DME</div>
+        <div class="desc">Diabetic Macular Edema — fluid from diabetes in macula</div>
+      </div>
+      <div class="info-item drusen">
+        <div class="cls" style="color:#d2a8ff">DRUSEN</div>
+        <div class="desc">Drusen Deposits — early sign of macular degeneration</div>
+      </div>
+      <div class="info-item normal">
+        <div class="cls" style="color:#7ee787">NORMAL</div>
+        <div class="desc">Healthy retina — no pathology detected</div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<footer>OCT Retinal System · BE Final Year Project 2024–25 · Powered by TFLite on Raspberry Pi 5</footer>
+
+<script>
+  const input    = document.getElementById('file-input');
+  const fileName = document.getElementById('file-name');
+  const preview  = document.getElementById('preview-img');
+  const dropzone = document.getElementById('dropzone');
+
+  input.addEventListener('change', () => {
+    if (input.files[0]) {
+      fileName.textContent = '✔ ' + input.files[0].name;
+      const reader = new FileReader();
+      reader.onload = e => {
+        preview.src = e.target.result;
+        preview.style.display = 'block';
+      };
+      reader.readAsDataURL(input.files[0]);
+    }
+  });
+
+  // Drag and drop highlight
+  dropzone.addEventListener('dragover', e => {
+    e.preventDefault();
+    dropzone.classList.add('dragover');
+  });
+  dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+  dropzone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropzone.classList.remove('dragover');
+    input.files = e.dataTransfer.files;
+    input.dispatchEvent(new Event('change'));
+  });
+</script>
+</body>
+</html>
